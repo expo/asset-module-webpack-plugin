@@ -44,8 +44,8 @@ In your webpack configuration file, add this to your list of plugins:
 
 ```js
 new AssetModulePlugin({
-  sourceBase: 'src',
-  destinationBase: 'build',
+  sourceBase: path.join(__dirname, 'src'),
+  destinationBase: path.join(__dirname, 'build'),
   test: /\.(?!js)$/,
   exclude: /node_modules/,
 })
