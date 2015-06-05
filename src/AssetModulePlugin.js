@@ -1,11 +1,9 @@
 /**
  * @flow
  */
-'use strict';
-
 import path from 'path';
 
-type Pattern = string | RegExp | (value: string) => bool | Array<Pattern>;
+type Pattern = string | RegExp | ((value: string) => bool) | Array<Pattern>;
 
 type Options = {
   /**
@@ -45,30 +43,32 @@ type Options = {
    * should not emit a module for the asset.
    */
   exclude: Pattern;
-}
+};
 
-export default class AssetModulePlugin {
+class AssetModulePlugin {
+  // options: Options;
+
   constructor(options: Options) {
     this.options = options;
   }
 
   apply(compiler: any) {
-    let options = this.options;
-    this.plugin('after-emit', (compilation, callback) => {
-      let { sourceBase, destinationBase } = options;
+    var options = this.options;
+    compiler.plugin('after-emit', (compilation, callback) => {
+      var { sourceBase, destinationBase } = options;
 
-      let emittedResources = new Set();
+      var emittedResources = new Set();
       compilation.modules.forEach(module => {
-        let { resource } = module;
+        var { resource } = module;
         if (emittedResources.has(resource) || !this._shouldEmit(module)) {
           return;
         }
         emittedResources.add(resource);
 
-        let relativePath = path.relative(sourceBase, resource);
-        let destinationPath = path.resolve(destinationBase, relativePath);
+        var relativePath = path.relative(sourceBase, resource);
+        var destinationPath = path.resolve(destinationBase, relativePath);
 
-        let outputFileSystem = compiler.outputFileSystem;
+        var outputFileSystem = compiler.outputFileSystem;
         outputFileSystem.mkdirp(path.dirname(destinationPath), error => {
           if (error) {
             callback(error);
@@ -86,8 +86,8 @@ export default class AssetModulePlugin {
   }
 
   _shouldEmit(module: Object): bool {
-    let { test, include, exclude } = this.options;
-    let { resource } = module;
+    var { test, include, exclude } = this.options;
+    var { resource } = module;
 
     if (test && !this._matches(test, resource)) {
       return false;
@@ -108,9 +108,9 @@ export default class AssetModulePlugin {
     }
 
     if (typeof pattern === 'string') {
-      let escapedPattern =
+      var escapedPattern =
         '^' + pattern.replace(/[-[\]{}()*+?.\\^$|]/g, '\\$&');
-      let regex = new RegExp(escapedPattern);
+      var regex = new RegExp(escapedPattern);
       return regex.test(string);
     }
 
@@ -121,3 +121,5 @@ export default class AssetModulePlugin {
     throw new Error(`Unsupported pattern: ${pattern}`);
   }
 }
+
+export default AssetModulePlugin;

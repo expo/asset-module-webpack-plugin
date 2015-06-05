@@ -1,0 +1,10 @@
+{
+  "whitelist": [
+    "flow",
+    "strict",
+    "es6.arrowFunctions",
+    "es6.destructuring",
+    "es6.modules",
+    "es7.classProperties"
+  ]
+}

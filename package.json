@@ -2,9 +2,12 @@
   "name": "asset-module-webpack-plugin",
   "version": "0.0.1",
   "description": "A webpack plugin that emits JS modules for your assets such as images. This allows Node to load the modules that webpack generated for your assets without having to run webpack's bundle on the server.",
-  "main": "AssetModulePlugin.js",
+  "main": "lib/AssetModulePlugin.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "babel --out-dir lib src"
+  },
+  "engines": {
+    "node": ">=2"
   },
   "repository": {
     "type": "git",
@@ -21,5 +24,10 @@
   "bugs": {
     "url": "https://github.com/exponentjs/asset-module-webpack-plugin/issues"
   },
-  "homepage": "https://github.com/exponentjs/asset-module-webpack-plugin#readme"
+  "homepage": "https://github.com/exponentjs/asset-module-webpack-plugin#readme",
+  "devDependencies": {
+    "babel": "^5.5.0",
+    "babel-eslint": "^3.1.11",
+    "eslint": "^0.22.1"
+  }
 }
