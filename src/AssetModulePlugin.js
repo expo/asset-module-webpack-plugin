@@ -1,9 +1,19 @@
 /**
  * @flow
  */
+import mkdirp from 'mkdirp';
 import path from 'path';
 
+var DEFAULT_FILE_SYSTEM_SYMBOL = Symbol('DefaultFileSystem');
+
 type Pattern = string | RegExp | ((value: string) => bool) | Array<Pattern>;
+
+type FileSystem = {
+  mkdir: Function;
+  stat: Function;
+  writeFile: Function;
+  mkdirp?: Function;
+};
 
 type Options = {
   /**
@@ -32,17 +42,26 @@ type Options = {
    * should emit a module for the asset. The test can be any of the types that
    * webpack's loader patterns support.
    */
-  test: Pattern;
+  test?: Pattern;
   /**
    * A test applied to each asset's resource path to determine if this plugin
    * should emit a module for the asset.
    */
-  include: Pattern;
+  include?: Pattern;
   /**
    * A test applied to each asset's resource path to determine if this plugin
    * should not emit a module for the asset.
    */
-  exclude: Pattern;
+  exclude?: Pattern;
+  /**
+   * Overrides the file systems used to write the emitted modules. By default,
+   * the plugin writes to the compiler's `outputFileSystem`, but you may want
+   * to write the modules to another file system as well.
+   *
+   * Specify `AssetModulePlugin.DefaultFileSystem` in the array to write to the
+   * compiler's `outputFileSystem`.
+   */
+  fileSystems?: Array<FileSystem | Symbol>;
 };
 
 class AssetModulePlugin {
@@ -53,50 +72,78 @@ class AssetModulePlugin {
   }
 
   apply(compiler: any) {
-    var options = this.options;
-    compiler.plugin('after-emit', (compilation, callback) => {
-      var { sourceBase, destinationBase } = options;
-
+    compiler.plugin('compilation', (compilation, parameters) => {
       var emittedResources = new Set();
-      var promises = compilation.modules.map(module => {
+      compilation.plugin('succeed-module', module => {
         var { resource } = module;
         if (emittedResources.has(resource) || !this._shouldEmit(module)) {
           return;
         }
         emittedResources.add(resource);
+        this._emitAssetModule(compiler, compilation, module);
+      });
+    });
+  }
 
-        var relativePath = path.relative(sourceBase, resource);
-        var destinationPath = path.resolve(destinationBase, relativePath);
-        if (resource === destinationPath) {
-          console.warn(`Destination path for ${resource} matches the source path; skipping instead of overwriting the file`);
+  _emitAssetModule(compiler: any, compilation: any, module: any) {
+    var { sourceBase, destinationBase } = this.options;
+    var { resource } = module;
+
+    var relativePath = path.relative(sourceBase, resource);
+    var destinationPath = path.resolve(destinationBase, relativePath);
+    if (resource === destinationPath) {
+      var message = `Destination path for ${resource} matches the source path; skipping instead of overwriting the file`;
+      compilation.warnings.push(new Error(message));
+      return Promise.resolve(null);
+    }
+
+    var source = module._source.source();
+    if (!this.options.fileSystems) {
+      var fileSystem = compiler.outputFileSystem;
+      return this._writeFile(destinationPath, source, fileSystem);
+    }
+
+    var fileSystems = this.options.fileSystems.map(fileSystem => {
+      if (fileSystem === DEFAULT_FILE_SYSTEM_SYMBOL) {
+        return compiler.outputFileSystem;
+      }
+      return fileSystem;
+    });
+
+    var promises = fileSystems.map(fileSystem => {
+      return this._writeFile(destinationPath, source, fileSystem).catch(error => {
+        compilation.errors.push(error);
+        throw error;
+      });
+    });
+    return Promise.all(promises);
+  }
+
+  _writeFile(filename: string, content: string, fileSystem: FileSystem) {
+    var makeDirectories = this._getMakeDirectoriesFunction(fileSystem);
+    return new Promise((resolve, reject) => {
+      makeDirectories(path.dirname(filename), error => {
+        if (error) {
+          reject(error);
           return;
         }
 
-        var outputFileSystem = compiler.outputFileSystem;
-        return new Promise((resolve, reject) => {
-          outputFileSystem.mkdirp(path.dirname(destinationPath), error => {
-            if (error) {
-              reject(error);
-              return;
-            }
-
-            var source = module._source.source();
-            outputFileSystem.writeFile(destinationPath, source, error => {
-              if (error) {
-                reject(error);
-              } else {
-                resolve();
-              }
-            });
-          });
+        fileSystem.writeFile(filename, content, error => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve(null);
+          }
         });
       });
-
-      Promise.all(promises).then(
-        () => callback(),
-        error => callback(error)
-      );
     });
+  }
+
+  _getMakeDirectoriesFunction(fileSystem: FileSystem) {
+    if (fileSystem.mkdirp) {
+      return fileSystem.mkdirp.bind(fileSystem);
+    }
+    return (path, callback) => mkdirp(path, { fs: fileSystem }, callback);
   }
 
   _shouldEmit(module: Object): bool {
@@ -135,5 +182,7 @@ class AssetModulePlugin {
     throw new Error(`Unsupported pattern: ${pattern}`);
   }
 }
+
+AssetModulePlugin.DefaultFileSystem = DEFAULT_FILE_SYSTEM_SYMBOL;
 
 export default AssetModulePlugin;

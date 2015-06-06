@@ -48,6 +48,7 @@ new AssetModulePlugin({
   destinationBase: path.join(__dirname, 'build'),
   test: /\.(?!js)$/,
   exclude: /node_modules/,
+  fileSystems: [AssetModulePlugin.DefaultFileSystem, require('fs')],
 })
 ```
 
