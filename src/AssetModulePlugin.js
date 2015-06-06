@@ -46,7 +46,7 @@ type Options = {
 };
 
 class AssetModulePlugin {
-  // options: Options;
+  options: Options;
 
   constructor(options: Options) {
     this.options = options;
@@ -58,7 +58,7 @@ class AssetModulePlugin {
       var { sourceBase, destinationBase } = options;
 
       var emittedResources = new Set();
-      compilation.modules.forEach(module => {
+      var promises = compilation.modules.map(module => {
         var { resource } = module;
         if (emittedResources.has(resource) || !this._shouldEmit(module)) {
           return;
@@ -67,21 +67,35 @@ class AssetModulePlugin {
 
         var relativePath = path.relative(sourceBase, resource);
         var destinationPath = path.resolve(destinationBase, relativePath);
+        if (resource === destinationPath) {
+          console.warn(`Destination path for ${resource} matches the source path; skipping instead of overwriting the file`);
+          return;
+        }
 
         var outputFileSystem = compiler.outputFileSystem;
-        outputFileSystem.mkdirp(path.dirname(destinationPath), error => {
-          if (error) {
-            callback(error);
-            return;
-          }
+        return new Promise((resolve, reject) => {
+          outputFileSystem.mkdirp(path.dirname(destinationPath), error => {
+            if (error) {
+              reject(error);
+              return;
+            }
 
-          outputFileSystem.writeFile(
-            destinationPath,
-            module._source.source(),
-            callback
-          );
+            var source = module._source.source();
+            outputFileSystem.writeFile(destinationPath, source, error => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve();
+              }
+            });
+          });
         });
       });
+
+      Promise.all(promises).then(
+        () => callback(),
+        error => callback(error)
+      );
     });
   }
 
@@ -95,7 +109,7 @@ class AssetModulePlugin {
     if (include && !this._matches(include, resource)) {
       return false;
     }
-    if (exclude && !this._matches(exclude, resource)) {
+    if (exclude && this._matches(exclude, resource)) {
       return false;
     }
 
