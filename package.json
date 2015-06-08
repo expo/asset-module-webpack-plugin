@@ -26,8 +26,8 @@
   },
   "homepage": "https://github.com/exponentjs/asset-module-webpack-plugin#readme",
   "devDependencies": {
-    "babel": "^5.5.1",
-    "babel-eslint": "^3.1.12",
+    "babel": "^5.5.6",
+    "babel-eslint": "^3.1.14",
     "eslint": "^0.22.1"
   },
   "dependencies": {

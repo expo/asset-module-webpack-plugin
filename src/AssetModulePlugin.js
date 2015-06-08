@@ -73,14 +73,26 @@ class AssetModulePlugin {
 
   apply(compiler: any) {
     compiler.plugin('compilation', (compilation, parameters) => {
-      var emittedResources = new Set();
+      var addedResources = new Set();
+      compilation._modulesToEmit = [];
       compilation.plugin('succeed-module', module => {
         var { resource } = module;
-        if (emittedResources.has(resource) || !this._shouldEmit(module)) {
+        if (addedResources.has(resource) || !this._shouldEmit(module)) {
           return;
         }
-        emittedResources.add(resource);
-        this._emitAssetModule(compiler, compilation, module);
+        addedResources.add(resource);
+        compilation._modulesToEmit.push(module);
+      });
+    });
+
+    compiler.plugin('after-emit', (compilation, callback) => {
+      Promise.all(compilation._modulesToEmit.map(module => {
+        return this._emitAssetModule(compiler, compilation, module);
+      })).then(result => {
+        callback(null, result);
+      }, error => {
+        console.warn(error.stack);
+        callback(error);
       });
     });
   }
@@ -97,7 +109,8 @@ class AssetModulePlugin {
       return Promise.resolve(null);
     }
 
-    var source = module._source.source();
+    var source = this._getAssetModuleSource(compilation, module);
+
     if (!this.options.fileSystems) {
       var fileSystem = compiler.outputFileSystem;
       return this._writeFile(destinationPath, source, fileSystem);
@@ -117,6 +130,30 @@ class AssetModulePlugin {
       });
     });
     return Promise.all(promises);
+  }
+
+  _getAssetModuleSource(compilation: any, module: any) {
+    var { sourceBase, destinationBase } = this.options;
+    var { resource, assets } = module;
+
+    var publicPath = compilation.mainTemplate.getPublicPath({
+      hash: compilation.hash,
+    });
+
+    var assetFilename;
+    var assetFilenames = Object.keys(assets);
+    if (assetFilenames.length === 0) {
+      assetFilename = path.relative(sourceBase, resource);
+    } else {
+      if (assetFilenames.length > 1) {
+        var message = `Module at ${resource} generated more than one asset; using the first one`;
+        compilation.warnings.push(new Error(message));
+      }
+      assetFilename = assetFilenames[0];
+    }
+
+    var fullAssetPath = publicPath + assetFilename;
+    return `module.exports = ${JSON.stringify(fullAssetPath)};\n`;
   }
 
   _writeFile(filename: string, content: string, fileSystem: FileSystem) {

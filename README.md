@@ -28,15 +28,14 @@ class Button extends React.Component {
 
 ## How it works
 
-The plugin runs after compilation and translates the path of the source asset to a destination path (you configure this with the `sourceBase` and `destinationBase` options). It then writes the transformed source of the module to the destination path. This lets you emit files like this:
+The plugin runs after compilation and translates the path of the source asset to a destination path (you configure this with the `sourceBase` and `destinationBase` options). It then writes the full path of the asset to a file at the destination path. It emit files like this:
 
 ```js
 // build/icon.png
-// It's actually a JS module with a png extension, which Node can evaluate
-module.exports = __webpack_public_path__ + "eelZITCY0q9Gbj00z8HI.png"
+// It's actually a JS module with a png extension, which Node can evaluate. The
+// full asset path is derived from the public path and asset's relative path.
+module.exports = "http://static.example.com/eelZITCY0q9Gbj00z8HI.png";
 ```
-
-Note that since the emitted module accesses `__webpack_public_path__` you must define this globally yourself.
 
 ## How to use it
 
