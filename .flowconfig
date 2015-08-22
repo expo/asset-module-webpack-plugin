@@ -1,8 +1,8 @@
 [ignore]
-.*/lib/
+.*/src/
 
 [include]
-src
+lib
 
 [libs]
 
