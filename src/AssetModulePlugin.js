@@ -133,7 +133,7 @@ class AssetModulePlugin {
   }
 
   _getAssetModuleSource(compilation: any, module: any) {
-    var { sourceBase, destinationBase } = this.options;
+    var { sourceBase } = this.options;
     var { resource, assets } = module;
 
     var publicPath = compilation.mainTemplate.getPublicPath({
